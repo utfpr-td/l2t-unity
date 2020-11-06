@@ -13,6 +13,7 @@ namespace LatexMathExpressionRender {
         RectTransform targetSpriteRect;
         InputField textCustomExp;
         Dropdown dropdown;
+        float axis;
         void Start() {
             Load();
         }
@@ -20,7 +21,13 @@ namespace LatexMathExpressionRender {
             Load();
         }
         private void Update() {
-            if (Input.GetAxis("Submit") > 0) OnTxtCustomExpEndEdit("self");
+            if (Input.GetAxis("Submit") > 0 && axis == 0) {
+                OnTxtCustomExpEndEdit("self");
+                axis = Input.GetAxis("Submit");
+            }
+            else if (Input.GetAxis("Submit") == 0 && axis > 0) {
+                axis = 0;
+            }
         }
         public void OnDropdownValueChanged(int param) {
             var index = dropdown.value;
