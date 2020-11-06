@@ -19,7 +19,8 @@ namespace LatexMathExpressionRender {
             var matchNumb = Regex.Match(n.expression, numbR);
             var matchVari = Regex.Match(n.expression, variR);
             if (n.expression[0] == '{') RemoveUnneededBraces(n);
-            if (matchFrac.Success && n.expression.IndexOf(matchFrac.ToString()) == 0) ParseFraction(n);
+            if (n.expression[0] == '(') ParseParenthesis(n);
+            else if (matchFrac.Success && n.expression.IndexOf(matchFrac.ToString()) == 0) ParseFraction(n);
             else if (matchSqrt.Success && n.expression.IndexOf(matchSqrt.ToString()) == 0) ParseRoot(n);
             else if (matchNumb.Success && n.expression.IndexOf(matchNumb.ToString()) == 0) ParseNumber(n);
             else if (matchVari.Success && n.expression.IndexOf(matchVari.ToString()) == 0) ParseVariable(n);
@@ -30,6 +31,89 @@ namespace LatexMathExpressionRender {
             string param;
             getParam(0, n.expression, out indexOp, out indexEd, out param);
             n.expression = string.Format("{0}{1}", param, n.expression.Substring(param.Length + 2));
+        }
+        private static void ParseParenthesis(Node n) {
+            string param1, param2, param3, op1, remainingExpression;
+            int indexOp1 = 0, indexEd1 = 0, indexOp2 = 0, indexEd2 = 0;
+            getParam(0, n.expression, out indexOp1, out indexEd1, out param1, '(', ')');
+            if (param1.Length + 2 == n.expression.Length) {
+                n.op = "()";
+                n.nodes = new List<Node> { parse(new Node { expression = param1, op = param1 }) };
+            }
+            else if (n.expression[param1.Length + 2] == '^') {
+                if (n.expression[param1.Length + 3] == '{') {
+                    getParam(param1.Length + 2, n.expression, out indexOp2, out indexEd2, out param2);
+                }
+                else if (n.expression[param1.Length + 3] == '(') {
+                    getParam(param1.Length + 2, n.expression, out indexOp2, out indexEd2, out param2, '(', ')');
+                    param2 = string.Format("({0})", param2);
+                }
+                else {
+                    indexOp2 = param1.Length + 2;
+                    indexEd2 = param1.Length + 3;
+                    param2 = n.expression[param1.Length + 3].ToString();
+                }
+                if (n.expression.Length > indexEd2 + 1) {
+                    switch (GetOperatorInfo(n.expression, indexEd2)) {
+                        case OperatorInfo.Explicit:
+                            op1 = n.expression[indexEd2 + 1].ToString();
+                            param3 = n.expression.Substring(indexEd2 + 2);
+                            break;
+                        case OperatorInfo.Implicit:
+                            op1 = "*";
+                            param3 = n.expression.Substring(indexEd2 + 1);
+                            break;
+                        default: throw new System.Exception("Parse parenthesis power, operator not implemented");
+                    }
+                    remainingExpression = n.expression.Substring(0, indexEd2 + 1);
+                    n.op = op1;
+                    n.nodes = new List<Node> {
+                        new Node { expression = remainingExpression, op = "^",
+                            nodes = new List<Node> {
+                                new Node { expression = string.Format("({0})", param1), op = "()",
+                                    nodes = new List<Node> {
+                                        parse(new Node { expression = param1, op = param1 })
+                                    }
+                                },
+                                parse(new Node { expression = param2, op = param2 })
+                            }
+                        }
+                    };
+                    n.nodes.Add(parse(new Node { expression = param3, op = param3 }));
+                }
+                else {
+                    n.op = "^";
+                    n.nodes = new List<Node> {
+                        new Node { expression = string.Format("({0})", param1), op = "()",
+                            nodes = new List<Node> {
+                                parse(new Node { expression = param1, op = param1 })
+                            }
+                        },
+                        parse(new Node { expression = param2, op = param2 })
+                    };
+                }
+            }
+            else {
+                switch (GetOperatorInfo(n.expression, indexEd1)) {
+                    case OperatorInfo.Explicit:
+                        param2 = n.expression.Substring(param1.Length + 3);
+                        n.op = n.expression[param1.Length + 2].ToString();
+                        n.nodes = new List<Node> {
+                            parse(new Node { expression = param1, op = param1 }), 
+                            parse(new Node { expression = param2, op = param2})
+                        };
+                        break;
+                    case OperatorInfo.Implicit:
+                        param2 = n.expression.Substring(param1.Length + 2);
+                        n.op = "*";
+                        n.nodes = new List<Node> {
+                            parse(new Node { expression = param1, op = param1 }),
+                            parse(new Node { expression = param2, op = param2})
+                        };
+                        break;
+                    default: throw new System.Exception("Parse parenthesis, operator info not implemented");
+                }
+            }
         }
         private static void ParseVariable(Node n) {
             if (n.expression.Length > 1 && !(n.expression.Length == 2 && (n.expression[0] == '-' || n.expression[0] == '+'))) {
@@ -64,10 +148,7 @@ namespace LatexMathExpressionRender {
                             powerHasCurlyBrackets = true;
                             getParam(operatorIndex + 1, n.expression, out indexOp, out indexEd, out paramPowe);
                         }
-                        else {
-                            paramPowe = n.expression[operatorIndex + 1].ToString();
-                            indexEd = operatorIndex + 1;
-                        }
+                        else paramPowe = n.expression[operatorIndex + 1].ToString();
                         break;
                     default:
                         op = "*";

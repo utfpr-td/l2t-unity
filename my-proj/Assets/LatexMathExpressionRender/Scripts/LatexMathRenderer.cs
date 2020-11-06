@@ -5,67 +5,69 @@ using UnityEngine.UI;
 
 namespace LatexMathExpressionRender {
     public class LatexMathRenderer : MonoBehaviour {
+        public int baseFontSize;
         public delegate void OnRenderComplete(Texture2D result);
-        bool wait;
+        bool waitL1;
+        bool waitL2;
         Color color;
+        Node activeNode;
         Text textObject;
         Camera renderCamera;
-        static Texture2D opParanthesis;
-        static Texture2D edParanthesis;
-        static Texture2D signPlus;
-        static Texture2D signMinu;
+        Texture2D activeTexture1;
+        Texture2D activeTexture2;
         void Start() {
-            Load();
-        }
-        private void Load() {
             textObject = GetComponentInChildren<Text>(true);
             renderCamera = GetComponentInChildren<Camera>(true);
+            if (baseFontSize == 0) baseFontSize = 50;
         }
         public void Render(string expresion, OnRenderComplete callback) {
-            this.color = textObject.color;
-            StartCoroutine(Render(Parser.parse(expresion), callback));
+            color = textObject.color;
+            var node = Parser.parse(expresion);
+            node.fontSize = baseFontSize;
+            StartCoroutine(Render(node, callback));
         }
         private IEnumerator Render(Node node, OnRenderComplete callback) {
-            //if (opParanthesis == null) {
-                wait = true;
-                StartCoroutine(makeTexture("(", 50, '('));
-                while (wait) yield return null;
-                wait = true;
-                StartCoroutine(makeTexture(")", 50, ')'));
-                while (wait) yield return null;
-                wait = true;
-                StartCoroutine(makeTexture("+", 50, '+'));
-                while (wait) yield return null;
-                wait = true;
-                StartCoroutine(makeTexture("-", 50, '-'));
-                while (wait) yield return null;
-            //}
-            wait = true;
+            waitL1 = true;
             StartCoroutine(MakeTextures(node));
-            while (wait) yield return null;
+            while (waitL1) yield return null;
             node.texture.wrapMode = TextureWrapMode.Clamp;
             callback.Invoke(node.texture);
 
         }
         IEnumerator MakeTextures(Node n) {
             if (n.nodes != null) {
+                if (n.op == "^" || n.op == @"\sqrt" && n.nodes.Count == 2) {
+                    n.nodes[0].fontSize = n.fontSize;
+                    n.nodes[1].fontSize = Mathf.Max(10, n.fontSize / 2);
+                }
+                else {
+                    for (int i = 0; i < n.nodes.Count; i++) {
+                        n.nodes[i].fontSize = n.fontSize;
+                    }
+                }
                 for (int i = 0; i < n.nodes.Count; i++) {
                     if (n.nodes[i].texture == null) {
-                        wait = true;
+                        waitL1 = true;
                         StartCoroutine(MakeTextures(n.nodes[i]));
-                        while (wait) yield return null;
+                        while (waitL1) yield return null;
                     }
                 }
             }
             switch (n.op) {
+                case "()":
+                    waitL1 = true;
+                    activeNode = n;
+                    StartCoroutine(addParenthesis());
+                    while (waitL1) yield return null;
+                    break;
                 case "+":
                 case "-":
                 case "=":
                 case "*":
-                    wait = true;
-                    StartCoroutine(makeTexture(n, 50));
-                    while (wait) yield return null;
-                    wait = true;
+                    waitL1 = true;
+                    StartCoroutine(makeTexture(n, n.fontSize));
+                    while (waitL1) yield return null;
+                    waitL1 = true;
                     var tempMargin = Mathf.Max(n.nodes[0].bottomMargin, n.nodes[1].bottomMargin) - Mathf.Min(n.nodes[0].bottomMargin, n.nodes[1].bottomMargin);
                     n.bottomMargin = Mathf.Max(n.nodes[0].bottomMargin, n.nodes[1].bottomMargin);
                     if (n.implicitOp) {
@@ -75,65 +77,55 @@ namespace LatexMathExpressionRender {
                         n.texture = mergeTexturesHorizontal(n.nodes[0].texture, n.texture, n.nodes[0].bottomMargin);
                         n.texture = mergeTexturesHorizontal(n.texture, n.nodes[1].texture, tempMargin);
                     }
-                    if (n.hasParenthesis) n.texture = addParenthesis(n.texture);
-                    wait = false;
+                    waitL1 = false;
                     break;
                 case @"\frac":
-                    wait = true;
+                    waitL1 = true;
                     n.texture = mergeTexturesVertical(n.nodes[0].texture, n.nodes[1].texture, true);
                     n.bottomMargin = n.nodes[1].texture.height + 4;
-                    if (n.sign.Length > 0) n.texture = addSign(n.texture, n.sign == "+" ? signPlus : signMinu, n.bottomMargin);
-                    if (n.hasParenthesis) n.texture = addParenthesis(n.texture);
-                    wait = false;
+                    if (n.sign.Length > 0) {
+                        waitL1 = true;
+                        activeNode = n;
+                        StartCoroutine(addSign());
+                        while (waitL1) yield return null;
+                    }
+                    waitL1 = false;
                     break;
                 case "^":
-                    wait = true;
-                    StartCoroutine(makeTexture(n.nodes[1], 25));
-                    while (wait) yield return null;
-                    wait = true;
+                    //waitL1 = true;
+                    //StartCoroutine(makeTexture(n.nodes[1], n.nodes[1].fontSize));
+                    //while (waitL1) yield return null;
+                    waitL1 = true;
                     n.texture = mergeTexturesPower(n.nodes[0].texture, n.nodes[1].texture);
-                    if (n.hasParenthesis) n.texture = addParenthesis(n.texture);
-                    wait = false;
+                    waitL1 = false;
                     break;
                 case @"\sqrt":
-                    wait = true;
+                    waitL1 = true;
                     n.bottomMargin = n.nodes[0].bottomMargin;
                     switch (n.nodes.Count) {
                         case 1: n.texture = makeTexturesRoot(n.nodes[0].texture, null); break;
                         case 2:
-                            wait = true;
-                            StartCoroutine(makeTexture(n.nodes[1], 25));
-                            while (wait) yield return null;
+                            waitL1 = true;
+                            StartCoroutine(makeTexture(n.nodes[1], n.nodes[1].fontSize));
+                            while (waitL1) yield return null;
                             n.texture = makeTexturesRoot(n.nodes[0].texture, n.nodes[1].texture);
                             break;
                         default: throw new System.Exception("No sqrt with 0 or more than 2 params implemented");
                     }
-                    if (n.sign.Length > 0) n.texture = addSign(n.texture, n.sign == "+" ? signPlus : signMinu);
-                    if (n.hasParenthesis) n.texture = addParenthesis(n.texture);
-                    wait = false;
+                    if (n.sign.Length > 0) {
+                        waitL1 = true;
+                        activeNode = n;
+                        StartCoroutine(addSign());
+                        while (waitL1) yield return null;
+                    }
+                    waitL1 = false;
                     break;
                 default:
-                    wait = true;
-                    StartCoroutine(makeTexture(n, 50));
-                    while (wait) yield return null;
+                    waitL1 = true;
+                    StartCoroutine(makeTexture(n, n.fontSize));
+                    while (waitL1) yield return null;
                     break;
             }
-            yield return null;
-        }
-        IEnumerator makeTexture(string text, int fontSize, char target) {
-            textObject.fontSize = fontSize;
-            textObject.text = text;
-            renderCamera.Render();
-            yield return new WaitForEndOfFrame();
-            var texture = CapturePixels();
-            switch (target) {
-                case '(': opParanthesis = texture; break;
-                case ')': edParanthesis = texture; break;
-                case '+': signPlus = texture; break;
-                case '-': signMinu = texture; break;
-                default: break;
-            }
-            wait = false;
             yield return null;
         }
         IEnumerator makeTexture(Node n, int fontSize) {
@@ -142,8 +134,7 @@ namespace LatexMathExpressionRender {
             renderCamera.Render();
             yield return new WaitForEndOfFrame();
             n.texture = CapturePixels();
-            if (n.hasParenthesis) n.texture = addParenthesis(n.texture);
-            wait = false;
+            waitL1 = false;
             yield return null;
         }
         Texture2D mergeTexturesHorizontal(Texture2D t1, Texture2D t2, int basin) {
@@ -199,10 +190,10 @@ namespace LatexMathExpressionRender {
             return result;
         }
         Texture2D mergeTexturesPower(Texture2D t1, Texture2D t2) {
-            var result = new Texture2D(t1.width + t2.width, t1.height + t2.height / 2);
+            var result = new Texture2D(t1.width + t2.width, t1.height + Mathf.CeilToInt(t2.height / 2f));
             Fill(result);
             result.SetPixels(0, 0, t1.width, t1.height, t1.GetPixels());
-            result.SetPixels(t1.width, t1.height - t2.height / 2, t2.width, t2.height, t2.GetPixels());
+            result.SetPixels(t1.width, t1.height - Mathf.CeilToInt(t2.height / 2f), t2.width, t2.height, t2.GetPixels());
             result.Apply();
             return result;
         }
@@ -261,50 +252,60 @@ namespace LatexMathExpressionRender {
             result.SetPixels(t2offset + firstSlopeWidth + secondSlopeWidth, 0, thirdSlopeWidth, t1.height + topPadding, thirdSlope);
             result.SetPixels(t2offset + prefixWidth, t1.height, t1.width, topPadding, topCover);
             if (t2offset > 0) {
-                result.SetPixels(0,  startPoint/firstSlopeWidth + 3, t2.width, t2.height, t2.GetPixels());
+                result.SetPixels(0, startPoint / firstSlopeWidth + 3, t2.width, t2.height, t2.GetPixels());
             }
 
 
             result.Apply();
             return result;
         }
-        Texture2D addParenthesis(Texture2D t1) {
-            var result = new Texture2D(t1.width + 2 * opParanthesis.width + edParanthesis.width, t1.height);
-            Fill(result);
-            result.SetPixels(0, t1.height / 2 - opParanthesis.height / 2, opParanthesis.width, opParanthesis.height, opParanthesis.GetPixels());
-            result.SetPixels(opParanthesis.width, 0, t1.width, t1.height, t1.GetPixels());
-            result.SetPixels(opParanthesis.width + t1.width, t1.height / 2 - opParanthesis.height / 2, edParanthesis.width, edParanthesis.height, edParanthesis.GetPixels());
-            result.Apply();
-            return result;
-        }
-        Texture2D addSign(Texture2D t1, Texture2D sign, int bottomMargin = 0) {
-            var result = new Texture2D(t1.width + sign.width, t1.height);
-            Fill(result);
-            result.SetPixels(0, bottomMargin, sign.width, sign.height, sign.GetPixels());
-            result.SetPixels(sign.width, 0, t1.width, t1.height, t1.GetPixels());
-            result.Apply();
-            return result;
-        }
-        Texture2D addParenthesisAdjustableHeight(Texture2D t1) {
-            var symbolWidth = 10;
-            var result = new Texture2D(t1.width + 2 * symbolWidth, t1.height);
-            Fill(result);
-            var opArea = result.GetPixels(0, 0, symbolWidth, t1.height);
-            var edArea = result.GetPixels(t1.width - symbolWidth, 0, symbolWidth, t1.height);
-            for (int i = 0; i < t1.height / 2; i++) {
-                var pDistance = (t1.height / 2f - i) / (t1.height / 2f);
-                opArea[i * symbolWidth + Mathf.FloorToInt(symbolWidth * Mathf.Sin(90f * pDistance * Mathf.PI / 180))] = Color.black;
-            }
-            for (int i = t1.height / 2; i < t1.height; i++) {
-                opArea[i * symbolWidth + Mathf.FloorToInt(symbolWidth * ((i - t1.height / 2f) / (t1.height / 2f)))] = Color.black;
-            }
-            result.SetPixels(0, 0, symbolWidth, t1.height, opArea);
-            result.SetPixels(symbolWidth, 0, t1.width, t1.height, t1.GetPixels());
-            result.SetPixels(symbolWidth + t1.width, 0, symbolWidth, t1.height, edArea);
-            result.Apply();
-            return result;
-        }
+        IEnumerator addParenthesis() {
+            waitL2 = true;
+            StartCoroutine(makeTexture("(", activeNode.fontSize, 1));
+            while (waitL2) yield return null;
 
+            waitL2 = true;
+            StartCoroutine(makeTexture(")", activeNode.fontSize, 2));
+            while (waitL2) yield return null;
+
+            activeNode.texture = new Texture2D(activeNode.nodes[0].texture.width + activeTexture1.width + activeTexture2.width, activeNode.nodes[0].texture.height);
+            Fill(activeNode.texture);
+            activeNode.texture.SetPixels(0, activeNode.nodes[0].texture.height / 2 - activeTexture1.height / 2, activeTexture1.width, activeTexture1.height, activeTexture1.GetPixels());
+            activeNode.texture.SetPixels(activeTexture1.width, 0, activeNode.nodes[0].texture.width, activeNode.nodes[0].texture.height, activeNode.nodes[0].texture.GetPixels());
+            activeNode.texture.SetPixels(activeTexture1.width + activeNode.nodes[0].texture.width, activeNode.nodes[0].texture.height / 2 - activeTexture1.height / 2, activeTexture2.width, activeTexture2.height, activeTexture2.GetPixels());
+            activeNode.texture.Apply();
+            waitL1 = false;
+            yield return null;
+        }
+        IEnumerator addSign() {
+            int width = activeNode.texture.width, height = activeNode.texture.height;
+            Color[] pixels = activeNode.texture.GetPixels();
+
+            waitL2 = true;
+            StartCoroutine(makeTexture(activeNode.sign, activeNode.fontSize, 1));
+            while (waitL2) yield return null;
+
+            activeNode.texture = new Texture2D(width + activeTexture1.width, height);
+            Fill(activeNode.texture);
+            activeNode.texture.SetPixels(0, 0, activeTexture1.width, activeTexture1.height, activeTexture1.GetPixels());
+            activeNode.texture.SetPixels(activeTexture1.width, 0, width, height, pixels);
+            activeNode.texture.Apply();
+            waitL1 = false;
+            yield return null;
+        }
+        IEnumerator makeTexture(string text, int fontSize, int activeTexture) {
+            textObject.fontSize = fontSize;
+            textObject.text = text;
+            renderCamera.Render();
+            yield return new WaitForEndOfFrame();
+            switch (activeTexture) {
+                case 1: activeTexture1 = CapturePixels(); break;
+                case 2: activeTexture2 = CapturePixels(); break;
+                default: throw new System.Exception("Active texture index not implemented");
+            }
+            waitL2 = false;
+            yield return null;
+        }
         private static void Fill(Texture2D result) {
             var array = result.GetPixels();
             var color = new Color(0, 0, 0, 0);

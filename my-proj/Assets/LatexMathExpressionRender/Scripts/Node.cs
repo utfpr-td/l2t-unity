@@ -6,6 +6,7 @@ namespace LatexMathExpressionRender {
     //public class Node {
     //}
     public class Node {
+        public int fontSize;
         public int bottomMargin;
         public bool implicitOp;
         public string op;
@@ -13,7 +14,6 @@ namespace LatexMathExpressionRender {
         public string expression;
         public Texture2D texture;
         public List<Node> nodes;
-        public bool hasParenthesis { get { return expression.StartsWith("(") && expression.EndsWith(")"); } }
         public bool hasFrac {
             get {
                 if (nodes == null || nodes.Count == 0) return op == @"\frac";
