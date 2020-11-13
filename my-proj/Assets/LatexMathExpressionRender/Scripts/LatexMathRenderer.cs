@@ -15,7 +15,7 @@ namespace LatexMathExpressionRender {
         Camera renderCamera;
         Texture2D activeTexture1;
         Texture2D activeTexture2;
-        void Start() {
+        void Awake() {
             textObject = GetComponentInChildren<Text>(true);
             renderCamera = GetComponentInChildren<Camera>(true);
             if (baseFontSize == 0) baseFontSize = 50;
