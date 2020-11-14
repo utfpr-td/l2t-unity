@@ -82,7 +82,7 @@ namespace LatexMathExpressionRender {
                 case @"\frac":
                     waitL1 = true;
                     n.texture = mergeTexturesVertical(n.nodes[0].texture, n.nodes[1].texture, true);
-                    n.bottomMargin = n.nodes[1].texture.height + 4;
+                    n.bottomMargin = n.nodes[1].texture.height - n.fontSize / 2 + 3;
                     if (n.sign.Length > 0) {
                         waitL1 = true;
                         activeNode = n;
@@ -166,7 +166,7 @@ namespace LatexMathExpressionRender {
             return result;
         }
         Texture2D mergeTexturesVertical(Texture2D t1, Texture2D t2, bool separator = false) {
-            var separatorThickness = 4;
+            var separatorThickness = 3;
             var result = new Texture2D(Mathf.Max(t1.width, t2.width), t1.height + t2.height + (separator ? separatorThickness : 0));
             Fill(result);
             int t1Offset = 0, t2Offset = 0;
@@ -285,10 +285,10 @@ namespace LatexMathExpressionRender {
             StartCoroutine(makeTexture(activeNode.sign, activeNode.fontSize, 1));
             while (waitL2) yield return null;
 
-            activeNode.texture = new Texture2D(width + activeTexture1.width, height);
+            activeNode.texture = new Texture2D(width + activeTexture1.width + 2, height);
             Fill(activeNode.texture);
-            activeNode.texture.SetPixels(0, 0, activeTexture1.width, activeTexture1.height, activeTexture1.GetPixels());
-            activeNode.texture.SetPixels(activeTexture1.width, 0, width, height, pixels);
+            activeNode.texture.SetPixels(0, activeNode.bottomMargin, activeTexture1.width, activeTexture1.height, activeTexture1.GetPixels());
+            activeNode.texture.SetPixels(activeTexture1.width + 2, 0, width, height, pixels);
             activeNode.texture.Apply();
             waitL1 = false;
             yield return null;
