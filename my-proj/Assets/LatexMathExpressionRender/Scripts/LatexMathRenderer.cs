@@ -20,10 +20,10 @@ namespace LatexMathExpressionRender {
             renderCamera = GetComponentInChildren<Camera>(true);
             if (baseFontSize == 0) baseFontSize = 50;
         }
-        public void Render(string expresion, OnRenderComplete callback) {
+        public void Render(string expresion, OnRenderComplete callback, int fontSize = 50) {
             color = textObject.color;
             var node = Parser.parse(expresion);
-            node.fontSize = baseFontSize;
+            node.fontSize = baseFontSize = fontSize;
             StartCoroutine(Render(node, callback));
         }
         private IEnumerator Render(Node node, OnRenderComplete callback) {
