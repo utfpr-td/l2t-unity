@@ -167,7 +167,7 @@ namespace LatexMathExpressionRender {
         }
         Texture2D mergeTexturesVertical(Texture2D t1, Texture2D t2, bool separator = false) {
             var separatorThickness = 3;
-            var result = new Texture2D(Mathf.Max(t1.width, t2.width), t1.height + t2.height + (separator ? separatorThickness : 0));
+            var result = new Texture2D(Mathf.Max(t1.width, t2.width), t1.height + t2.height + (separator ? separatorThickness + 1 : 0));
             Fill(result);
             int t1Offset = 0, t2Offset = 0;
             if (t1.width > t2.width) {
@@ -183,7 +183,7 @@ namespace LatexMathExpressionRender {
                 for (int i = 0; i < sepArray.Length; i++) {
                     sepArray[i] = color;
                 }
-                result.SetPixels(0, t2.height, result.width, separatorThickness, sepArray);
+                result.SetPixels(0, t2.height + 1, result.width, separatorThickness, sepArray);
             }
             result.SetPixels(t2Offset, 0, t2.width, t2.height, t2.GetPixels());
             result.Apply();
@@ -234,12 +234,14 @@ namespace LatexMathExpressionRender {
             firstSlope[startPoint + 2 * firstSlopeWidth + 2] = color;
 
             int lineLength;
+
             var secondStartPoint = (t1.height + topPadding) * secondSlopeWidth / 2 + 2 * secondSlopeWidth;
             lineLength = (t1.height + topPadding - topMargin - bottomMargin) / (2 * secondSlopeWidth);
             for (int i = 0; i < secondSlopeWidth; i++) {
                 for (int j = 0; j < lineLength; j++) secondSlope[secondStartPoint - j * secondSlopeWidth] = color;
                 secondStartPoint = secondStartPoint - secondSlopeWidth * (lineLength) + 1;
             }
+
             var thirdStartPoint = thirdSlopeWidth * bottomMargin;
             lineLength = (t1.height + topPadding - topMargin - bottomMargin) / thirdSlopeWidth;
             for (int i = 0; i < thirdSlopeWidth; i++) {
