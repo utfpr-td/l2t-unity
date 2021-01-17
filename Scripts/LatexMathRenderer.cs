@@ -261,6 +261,61 @@ namespace LatexMathExpressionRender {
             result.Apply();
             return result;
         }
+        Texture2D makeTexturesRootV2(Texture2D root, Texture2D index) {
+            int bottomMargin = 10, topMargin = 2, topPadding = 4, firstSlopeWidth = 3, secondSlopeWidth = 6, thirdSlopeWidth = 6, t2offset = 0, t2hoffset = 0;
+            int prefixWidth = firstSlopeWidth + secondSlopeWidth + thirdSlopeWidth;
+            var startPoint = (root.height + topPadding) * firstSlopeWidth / 2;
+            if (index != null) {
+                t2offset = index.width;
+                t2hoffset = index.height - (root.height + topPadding - startPoint / firstSlopeWidth);
+            }
+            var result = new Texture2D(root.width + prefixWidth + t2offset, root.height + topPadding + t2hoffset + 3);
+            Fill(result);
+            result.SetPixels(t2offset + prefixWidth, 0, root.width, root.height, root.GetPixels());
+            var firstSlope = new Color[(root.height + topPadding) * firstSlopeWidth];
+            var secondSlope = new Color[(root.height + topPadding) * secondSlopeWidth];
+            var thirdSlope = new Color[(root.height + topPadding) * thirdSlopeWidth];
+            var topCover = new Color[topPadding * root.width];
+            var transparent = new Color(0, 0, 0, 0);
+            for (int i = 0; i < firstSlope.Length; i++) firstSlope[i] = transparent;
+            for (int i = 0; i < secondSlope.Length; i++) secondSlope[i] = transparent;
+            for (int i = 0; i < thirdSlope.Length; i++) thirdSlope[i] = transparent;
+            for (int i = 0; i < topPadding - topMargin; i++) for (int j = 0; j < root.width; j++) topCover[i * root.width + j] = color;
+            for (int i = topMargin; i < topPadding; i++) for (int j = 0; j < root.width; j++) topCover[i * root.width + j] = transparent;
+            firstSlope[startPoint] = color;
+            firstSlope[startPoint + 1] = color;
+            firstSlope[startPoint + firstSlopeWidth + 1] = color;
+            firstSlope[startPoint + firstSlopeWidth + 2] = color;
+            firstSlope[startPoint + 2 * firstSlopeWidth + 2] = color;
+
+            int lineLength;
+
+            var secondStartPoint = (root.height + topPadding) * secondSlopeWidth / 2 + 2 * secondSlopeWidth;
+            lineLength = (root.height + topPadding - topMargin - bottomMargin) / (2 * secondSlopeWidth);
+            for (int i = 0; i < secondSlopeWidth; i++) {
+                for (int j = 0; j < lineLength; j++) secondSlope[secondStartPoint - j * secondSlopeWidth] = color;
+                secondStartPoint = secondStartPoint - secondSlopeWidth * (lineLength) + 1;
+            }
+
+            var thirdStartPoint = thirdSlopeWidth * bottomMargin;
+            lineLength = (root.height + topPadding - topMargin - bottomMargin) / thirdSlopeWidth;
+            for (int i = 0; i < thirdSlopeWidth; i++) {
+                for (int j = 0; j < lineLength; j++) thirdSlope[thirdStartPoint + j * thirdSlopeWidth] = color;
+                thirdStartPoint = thirdStartPoint + thirdSlopeWidth * (lineLength) + 1;
+            }
+
+            result.SetPixels(t2offset, 0, firstSlopeWidth, root.height + topPadding, firstSlope);
+            result.SetPixels(t2offset + firstSlopeWidth, 0, secondSlopeWidth, root.height + topPadding, secondSlope);
+            result.SetPixels(t2offset + firstSlopeWidth + secondSlopeWidth, 0, thirdSlopeWidth, root.height + topPadding, thirdSlope);
+            result.SetPixels(t2offset + prefixWidth, root.height, root.width, topPadding, topCover);
+            if (t2offset > 0) {
+                result.SetPixels(0, startPoint / firstSlopeWidth + 3, index.width, index.height, index.GetPixels());
+            }
+
+
+            result.Apply();
+            return result;
+        }
         IEnumerator addParenthesis() {
             waitL2 = true;
             StartCoroutine(makeTexture("(", activeNode.fontSize, 1));
