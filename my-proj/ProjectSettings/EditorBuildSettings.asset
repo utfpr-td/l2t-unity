@@ -12,6 +12,6 @@ EditorBuildSettings:
     path: Assets/Scenes/ChooseCharacter.unity
     guid: 752e6f8aa499750489945bafe9659a0b
   - enabled: 1
-    path: Assets/Scenes/Map.unity
+    path: Assets/Scenes/IlhaDaMatematica.unity
     guid: 8fde3d8b66dd95443b341d1912e35a88
   m_configObjects: {}
