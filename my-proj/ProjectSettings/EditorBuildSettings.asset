@@ -12,6 +12,18 @@ EditorBuildSettings:
     path: Assets/Scenes/ChooseCharacter.unity
     guid: 752e6f8aa499750489945bafe9659a0b
   - enabled: 1
+    path: Assets/Scenes/WorldMap.unity
+    guid: 8c4d7dd9b64eece4c838c938788953e9
+  - enabled: 1
     path: Assets/Scenes/IlhaDaMatematica.unity
     guid: 8fde3d8b66dd95443b341d1912e35a88
+  - enabled: 1
+    path: Assets/Scenes/IlhaTeste.unity
+    guid: 093a8010dba77eb49ba4501f2dfa8ae5
+  - enabled: 1
+    path: Assets/Scenes/IlhaDoDebug.unity
+    guid: 33f88bba3b877ba4197b6aaf2bc60fb6
+  - enabled: 1
+    path: Assets/Scenes/IlhaGrande.unity
+    guid: 9fcbb8619a293c24ba4be73a5c3dbee6
   m_configObjects: {}
