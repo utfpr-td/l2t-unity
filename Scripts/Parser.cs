@@ -10,6 +10,7 @@ namespace LatexMathExpressionRender {
             return parse(node);
         }
         private static Node parse(Node n) {
+            if (string.IsNullOrEmpty(n.expression)) return n;
             var fracR = @"[+-]{0,1}\\frac";
             var sqrtR = @"[+-]{0,1}\\sqrt";
             var numbR = @"[+-]{0,1}(\d{1,},\d{1,}|\d{1,})";
