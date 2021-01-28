@@ -5,15 +5,19 @@ using UnityEngine.UI;
 using System.Text.RegularExpressions;
 using UnityEngine.Rendering;
 using System;
+using UnityEngine.InputSystem;
 
 namespace LatexMathExpressionRender {
     public class Tester : MonoBehaviour {
+        public int fontSize = 50;
+        private int lastSize;
         LatexMathRenderer mathRenderer;
         Image targetSpriteImage;
         RectTransform targetSpriteRect;
         InputField textCustomExp;
         Dropdown dropdown;
-        float axis;
+        //float axis;
+        bool axis;
         void Start() {
             Load();
         }
@@ -21,19 +25,32 @@ namespace LatexMathExpressionRender {
             Load();
         }
         private void Update() {
-            if (Input.GetAxis("Submit") > 0 && axis == 0) {
+            //if (Input.GetAxis("Submit") > 0 && axis == 0) {
+            //    OnTxtCustomExpEndEdit("self");
+            //    axis = Input.GetAxis("Submit");
+            //}
+            //else if (Input.GetAxis("Submit") == 0 && axis > 0) {
+            //    axis = 0;
+            //}
+
+            if (Keyboard.current.enterKey.isPressed && !axis) {
                 OnTxtCustomExpEndEdit("self");
-                axis = Input.GetAxis("Submit");
+                axis = true;
             }
-            else if (Input.GetAxis("Submit") == 0 && axis > 0) {
-                axis = 0;
+            else if (!Keyboard.current.enterKey.isPressed && axis) {
+                axis = false;
+            }
+            if (lastSize != fontSize) {
+                mathRenderer.Render(textCustomExp.text, RenderCallback, fontSize);
+                lastSize = fontSize;
             }
         }
         public void OnDropdownValueChanged(int param) {
             var index = dropdown.value;
             if (index >= 0) {
                 textCustomExp.text = DemoExpressions.all[index];
-                mathRenderer.Render(textCustomExp.text, RenderCallback);
+                mathRenderer.Render(textCustomExp.text, RenderCallback, fontSize);
+                lastSize = fontSize;
             }
         }
         public void OnTxtCustomExpEndEdit(string val) {
@@ -41,7 +58,8 @@ namespace LatexMathExpressionRender {
                 PlayerPrefs.SetString("lastExp", textCustomExp.text);
                 textCustomExp.ActivateInputField();
                 textCustomExp.caretPosition = textCustomExp.text.Length;
-                mathRenderer.Render(textCustomExp.text, RenderCallback);
+                mathRenderer.Render(textCustomExp.text, RenderCallback, fontSize);
+                lastSize = fontSize;
             }
         }
         public void OnBtnMoveClick(int delta) {
