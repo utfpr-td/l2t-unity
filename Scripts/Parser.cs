@@ -5,22 +5,34 @@ using UnityEngine;
 
 namespace LatexMathExpressionRender {
     public static class Parser {
-        public static Node parse(string expression) {
+        public static ExpressionTree Parse(string expression) {
+            var expressionTree = new ExpressionTree();
+            var nameR = @"[a-zA-Z]:\s*";
+            var matchName = Regex.Match(expression, nameR);
+            if (matchName.Success && expression.IndexOf(matchName.ToString()) == 0) {
+                expressionTree.expressionName = matchName.ToString();
+                expression = expression.Substring(matchName.Length);
+            }
+
             var node = new Node() { expression = expression, op = expression };
-            return parse(node);
+            expressionTree.node = Parse(node);
+            return expressionTree;
         }
-        private static Node parse(Node n) {
+        private static Node Parse(Node n) {
             if (string.IsNullOrEmpty(n.expression)) return n;
+            var funcR = @"[a-zA-Z]\([a-zA-Z](,\s*[a-zA-Z])*\)";
             var fracR = @"[+-]{0,1}\\frac";
             var sqrtR = @"[+-]{0,1}\\sqrt";
             var numbR = @"[+-]{0,1}(\d{1,},\d{1,}|\d{1,})";
             var variR = @"[+-]{0,1}[a-zA-Z]{1}";
+            var matchFunc = Regex.Match(n.expression, funcR);
             var matchFrac = Regex.Match(n.expression, fracR);
             var matchSqrt = Regex.Match(n.expression, sqrtR);
             var matchNumb = Regex.Match(n.expression, numbR);
             var matchVari = Regex.Match(n.expression, variR);
             if (n.expression[0] == '{') RemoveUnneededBraces(n);
             if (n.expression[0] == '(') ParseParenthesis(n);
+            else if (matchFunc.Success && n.expression.IndexOf(matchFunc.ToString()) == 0) ParseFunc(n);
             else if (matchFrac.Success && n.expression.IndexOf(matchFrac.ToString()) == 0) ParseFraction(n);
             else if (matchSqrt.Success && n.expression.IndexOf(matchSqrt.ToString()) == 0) ParseRoot(n);
             else if (matchNumb.Success && n.expression.IndexOf(matchNumb.ToString()) == 0) ParseNumber(n);
@@ -33,13 +45,44 @@ namespace LatexMathExpressionRender {
             getParam(0, n.expression, out indexOp, out indexEd, out param);
             n.expression = string.Format("{0}{1}", param, n.expression.Substring(param.Length + 2));
         }
+        private static void ParseFunc(Node n) {
+            string param1 = string.Empty, param2 = string.Empty;
+            var index = n.expression.IndexOf(')');
+            if (n.expression.Length > index + 1) {
+                var op = GetOperatorInfo(n.expression, index);
+                switch (op) {
+                    case OperatorInfo.Explicit:
+                        param1 = n.expression.Substring(index + 2);
+                        param2 = n.expression.Substring(0, index + 1);
+                        n.op = n.expression[index + 1].ToString();
+                        n.nodes = new List<Node> {
+                            new Node { expression = param2, op = param2 },
+                            Parse(new Node{ expression = param1, op = param1 })
+                        };
+                        break;
+                    case OperatorInfo.Implicit:
+                        param1 = n.expression.Substring(index + 1);
+                        param2 = n.expression.Substring(0, index + 1);
+                        n.op = "*";
+                        n.nodes = new List<Node> {
+                            new Node { expression = param2, op = param2 },
+                            Parse(new Node{ expression = param1, op = param1 })
+                        };
+                        break;
+                    default: throw new System.Exception("Operator info not implemented");
+                }
+            }
+            else {
+                n.op = "func";
+            }
+        }
         private static void ParseParenthesis(Node n) {
             string param1, param2, param3, op1, remainingExpression;
             int indexOp1 = 0, indexEd1 = 0, indexOp2 = 0, indexEd2 = 0;
             getParam(0, n.expression, out indexOp1, out indexEd1, out param1, '(', ')');
             if (param1.Length + 2 == n.expression.Length) {
                 n.op = "()";
-                n.nodes = new List<Node> { parse(new Node { expression = param1, op = param1 }) };
+                n.nodes = new List<Node> { Parse(new Node { expression = param1, op = param1 }) };
             }
             else if (n.expression[param1.Length + 2] == '^') {
                 if (n.expression[param1.Length + 3] == '{') {
@@ -73,24 +116,24 @@ namespace LatexMathExpressionRender {
                             nodes = new List<Node> {
                                 new Node { expression = string.Format("({0})", param1), op = "()",
                                     nodes = new List<Node> {
-                                        parse(new Node { expression = param1, op = param1 })
+                                        Parse(new Node { expression = param1, op = param1 })
                                     }
                                 },
-                                parse(new Node { expression = param2, op = param2 })
+                                Parse(new Node { expression = param2, op = param2 })
                             }
                         }
                     };
-                    n.nodes.Add(parse(new Node { expression = param3, op = param3 }));
+                    n.nodes.Add(Parse(new Node { expression = param3, op = param3 }));
                 }
                 else {
                     n.op = "^";
                     n.nodes = new List<Node> {
                         new Node { expression = string.Format("({0})", param1), op = "()",
                             nodes = new List<Node> {
-                                parse(new Node { expression = param1, op = param1 })
+                                Parse(new Node { expression = param1, op = param1 })
                             }
                         },
-                        parse(new Node { expression = param2, op = param2 })
+                        Parse(new Node { expression = param2, op = param2 })
                     };
                 }
             }
@@ -100,16 +143,16 @@ namespace LatexMathExpressionRender {
                         param2 = n.expression.Substring(param1.Length + 3);
                         n.op = n.expression[param1.Length + 2].ToString();
                         n.nodes = new List<Node> {
-                            parse(new Node { expression = param1, op = param1 }), 
-                            parse(new Node { expression = param2, op = param2})
+                            Parse(new Node { expression = param1, op = param1 }), 
+                            Parse(new Node { expression = param2, op = param2})
                         };
                         break;
                     case OperatorInfo.Implicit:
                         param2 = n.expression.Substring(param1.Length + 2);
                         n.op = "*";
                         n.nodes = new List<Node> {
-                            parse(new Node { expression = param1, op = param1 }),
-                            parse(new Node { expression = param2, op = param2})
+                            Parse(new Node { expression = param1, op = param1 }),
+                            Parse(new Node { expression = param2, op = param2})
                         };
                         break;
                     default: throw new System.Exception("Parse parenthesis, operator info not implemented");
@@ -163,8 +206,8 @@ namespace LatexMathExpressionRender {
                     if (n.expression.Length == memberLength) {
                         n.op = "^";
                         n.nodes = new List<Node> {
-                            parse(new Node { expression = paramBase, op = paramBase }),
-                            parse(new Node { expression = paramPowe, op = paramPowe })
+                            Parse(new Node { expression = paramBase, op = paramBase }),
+                            Parse(new Node { expression = paramPowe, op = paramPowe })
                         };
                     }
                     else {
@@ -183,18 +226,18 @@ namespace LatexMathExpressionRender {
                         }
                         n.nodes = new List<Node> {
                             new Node{ expression = string.Format("{0}^{1}", paramBase, paramPowe), op = "^", nodes = new List<Node>{
-                                parse(new Node { expression = paramBase, op = paramBase }),
-                                parse(new Node { expression = paramPowe, op = paramPowe })
+                                Parse(new Node { expression = paramBase, op = paramBase }),
+                                Parse(new Node { expression = paramPowe, op = paramPowe })
                             } },
-                            parse(new Node{ expression = remainingExpression, op = remainingExpression })
+                            Parse(new Node{ expression = remainingExpression, op = remainingExpression })
                         };
                     }
                 }
                 else {
                     n.op = op;
                     n.nodes = new List<Node> {
-                        parse(new Node{ expression = member, op = member }),
-                        parse(new Node{ expression = remainingExpression, op = remainingExpression })
+                        Parse(new Node{ expression = member, op = member }),
+                        Parse(new Node{ expression = remainingExpression, op = remainingExpression })
                     };
                 }
             }
@@ -222,8 +265,8 @@ namespace LatexMathExpressionRender {
                         n.op = "^";
                         var exp = n.expression.Substring(0, firstNonNumber.Index);
                         n.nodes = new List<Node> {
-                            parse(new Node { expression = exp, op = exp  }),
-                            parse(new Node { expression = param, op = param  }),
+                            Parse(new Node { expression = exp, op = exp  }),
+                            Parse(new Node { expression = param, op = param  }),
                         };
                     }
                     else {
@@ -233,8 +276,8 @@ namespace LatexMathExpressionRender {
                         n.nodes = new List<Node> {
                             new Node { expression = n.expression.Substring(0, indexEd + 1), op = "^",
                                 nodes = new List<Node> {
-                                    parse(new Node{ expression = param1, op = param1 }),
-                                    parse(new Node{ expression = param2, op = param2 }),
+                                    Parse(new Node{ expression = param1, op = param1 }),
+                                    Parse(new Node{ expression = param2, op = param2 }),
                                 },
                             }
                         };
@@ -243,13 +286,13 @@ namespace LatexMathExpressionRender {
                         switch (operatorInfo) {
                             case OperatorInfo.Implicit:
                                 remainder = n.expression.Substring(indexEd + 1);
-                                n.nodes.Add(parse(new Node { expression = remainder, op = remainder }));
+                                n.nodes.Add(Parse(new Node { expression = remainder, op = remainder }));
                                 n.op = "*";
                                 n.implicitOp = true;
                                 break;
                             case OperatorInfo.Explicit:
                                 remainder = n.expression.Substring(indexEd + 2);
-                                n.nodes.Add(parse(new Node { expression = remainder, op = remainder }));
+                                n.nodes.Add(Parse(new Node { expression = remainder, op = remainder }));
                                 n.op = n.expression[indexEd + 1].ToString();
                                 break;
                             default:
@@ -290,7 +333,7 @@ namespace LatexMathExpressionRender {
                     n.op = @"\sqrt";
                     n.sign = sign;
                     n.nodes = new List<Node> { new Node{ expression = param1, op = param1 }, };
-                    parse(n.nodes[0]);
+                    Parse(n.nodes[0]);
                 }
                 else if (n.expression[indexEd1] == '^') {
                     throw new System.Exception("not implemented \\sqrt{}^power");
@@ -304,8 +347,8 @@ namespace LatexMathExpressionRender {
                 n.op = @"\sqrt";
                 n.sign = sign;
                 n.nodes = new List<Node> { new Node { expression = param2, op = param2 }, new Node { expression = param1, op = param1 }, };
-                parse(n.nodes[0]);
-                parse(n.nodes[1]);
+                Parse(n.nodes[0]);
+                Parse(n.nodes[1]);
             }
             else SplitExpression(n, indexEd1);
         }
@@ -326,8 +369,8 @@ namespace LatexMathExpressionRender {
                     new Node{ expression = param1, op = param1 },
                     new Node{ expression = param2, op = param2 }
                 };
-                parse(n.nodes[0]);
-                parse(n.nodes[1]);
+                Parse(n.nodes[0]);
+                Parse(n.nodes[1]);
             }
             else if (n.expression[indexEd2 + 1] == '^') {
                 string param3 = string.Empty;
@@ -339,12 +382,12 @@ namespace LatexMathExpressionRender {
 
                 if (n.expression.Length == indexEd1 + 1) {
                     n.op = "^";
-                    var n1 = parse(new Node { expression = param3, op = param3 });
+                    var n1 = Parse(new Node { expression = param3, op = param3 });
                     n.nodes = new List<Node> {
                         new Node { expression = n.expression.Substring(0, indexEd2 + 1), op = "\\frac", sign = sign,
                             nodes = new List<Node>{
-                                parse(new Node{ expression = param1, op = param1 }),
-                                parse(new Node{ expression = param2, op = param2 }),
+                                Parse(new Node{ expression = param1, op = param1 }),
+                                Parse(new Node{ expression = param2, op = param2 }),
                             }
                         },
                         n1
@@ -356,11 +399,11 @@ namespace LatexMathExpressionRender {
                         nodes = new List<Node> {
                             new Node { expression = n.expression.Substring(0, indexEd2), op = "\\frac", sign = sign,
                                 nodes = new List<Node>{
-                                        parse(new Node{ expression = param1, op = param1 }),
-                                        parse(new Node{ expression = param2, op = param2 }),
+                                        Parse(new Node{ expression = param1, op = param1 }),
+                                        Parse(new Node{ expression = param2, op = param2 }),
                                     }
                                 },
-                                parse(new Node { expression = param3, op = param3 })
+                                Parse(new Node { expression = param3, op = param3 })
                             }
                         },
                     };
@@ -369,13 +412,13 @@ namespace LatexMathExpressionRender {
                     switch (operatorInfo) {
                         case OperatorInfo.Implicit:
                             remainder = n.expression.Substring(indexEd1 + 1);
-                            n.nodes.Add(parse(new Node { expression = remainder, op = remainder }));
+                            n.nodes.Add(Parse(new Node { expression = remainder, op = remainder }));
                             n.op = "*";
                             n.implicitOp = true;
                             break;
                         case OperatorInfo.Explicit:
                             remainder = n.expression.Substring(indexEd1 + 2);
-                            n.nodes.Add(parse(new Node { expression = remainder, op = remainder }));
+                            n.nodes.Add(Parse(new Node { expression = remainder, op = remainder }));
                             n.op = n.expression[indexEd1 + 1].ToString();
                             break;
                         default:
@@ -417,8 +460,8 @@ namespace LatexMathExpressionRender {
                     new Node{ expression = sqrt, op = sqrt },
                     new Node{ expression = param2, op = param2 }
                 };
-            parse(n.nodes[0]);
-            parse(n.nodes[1]);
+            Parse(n.nodes[0]);
+            Parse(n.nodes[1]);
 
         }
         private static OperatorInfo GetOperatorInfo(string expression, int index) {
