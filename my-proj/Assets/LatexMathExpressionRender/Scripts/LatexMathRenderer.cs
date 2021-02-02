@@ -23,18 +23,27 @@ namespace LatexMathExpressionRender {
         }
         public void Render(string expresion, OnRenderComplete callback, int fontSize = 50) {
             color = textObject.color;
-            var node = Parser.parse(expresion);
+            var tree = Parser.Parse(expresion);
             if (fontSize < 10) fontSize = 10;
-            node.fontSize = baseFontSize = fontSize;
-            StartCoroutine(Render(node, callback));
+            tree.node.fontSize = baseFontSize = fontSize;
+            StartCoroutine(Render(tree, callback));
         }
-        private IEnumerator Render(Node node, OnRenderComplete callback) {
+        private IEnumerator Render(ExpressionTree tree, OnRenderComplete callback) {
             waitL1 = true;
-            StartCoroutine(MakeTextures(node));
+            StartCoroutine(MakeTextures(tree.node));
             while (waitL1) yield return null;
-            node.texture.wrapMode = TextureWrapMode.Clamp;
-            callback.Invoke(node.texture);
-
+            if (!string.IsNullOrEmpty(tree.expressionName)) {
+                waitL1 = true;
+                StartCoroutine(MakeTexture(tree, tree.node.fontSize));
+                while (waitL1) yield return null;
+                var res = MergeTexturesHorizontal(tree.texture, tree.node.texture, 0);
+                res.wrapMode = TextureWrapMode.Clamp;
+                callback.Invoke(res);
+            }
+            else {
+                tree.node.texture.wrapMode = TextureWrapMode.Clamp;
+                callback.Invoke(tree.node.texture);
+            }
         }
 
         private IEnumerator MakeTextures(Node n) {
@@ -95,9 +104,6 @@ namespace LatexMathExpressionRender {
                     waitL1 = false;
                     break;
                 case "^":
-                    //waitL1 = true;
-                    //StartCoroutine(makeTexture(n.nodes[1], n.nodes[1].fontSize));
-                    //while (waitL1) yield return null;
                     waitL1 = true;
                     n.texture = MergeTexturesPower(n.nodes[0].texture, n.nodes[1].texture);
                     waitL1 = false;
@@ -106,13 +112,11 @@ namespace LatexMathExpressionRender {
                     waitL1 = true;
                     n.bottomMargin = n.nodes[0].bottomMargin;
                     switch (n.nodes.Count) {
-                        //case 1: n.texture = makeTexturesRoot(n.nodes[0].texture, null); break;
                         case 1: n.texture = MakeTexturesRootV2(n.nodes[0].texture, null); break;
                         case 2:
                             waitL1 = true;
                             StartCoroutine(MakeTexture(n.nodes[1], n.nodes[1].fontSize));
                             while (waitL1) yield return null;
-                            //n.texture = makeTexturesRoot(n.nodes[0].texture, n.nodes[1].texture);
                             n.texture = MakeTexturesRootV2(n.nodes[0].texture, n.nodes[1].texture);
                             break;
                         default: throw new System.Exception("No sqrt with 0 or more than 2 params implemented");
@@ -134,12 +138,24 @@ namespace LatexMathExpressionRender {
             yield return null;
         }
 
+        public float multiplier = 2f;
         private IEnumerator MakeTexture(Node n, int fontSize) {
-            textObject.fontSize = fontSize;
+            textObject.fontSize = fontSize * (int)multiplier;
+            textObject.rectTransform.localScale = new Vector3(1 / multiplier, 1 / multiplier, 1);
             textObject.text = n.op;
             renderCamera.Render();
             yield return new WaitForEndOfFrame();
             n.texture = CapturePixels();
+            waitL1 = false;
+            yield return null;
+        }
+        private IEnumerator MakeTexture(ExpressionTree tree, int fontSize) {
+            textObject.fontSize = fontSize * (int)multiplier;
+            textObject.rectTransform.localScale = new Vector3(1 / multiplier, 1 / multiplier, 1);
+            textObject.text = tree.expressionName;
+            renderCamera.Render();
+            yield return new WaitForEndOfFrame();
+            tree.texture = CapturePixels();
             waitL1 = false;
             yield return null;
         }
@@ -382,8 +398,8 @@ namespace LatexMathExpressionRender {
         }
 
         public Texture2D CapturePixels() {
-            int width = Mathf.FloorToInt(textObject.rectTransform.rect.width);
-            int height = Mathf.FloorToInt(textObject.rectTransform.rect.height);
+            int width = Mathf.FloorToInt(textObject.rectTransform.rect.width * textObject.rectTransform.localScale.x);
+            int height = Mathf.FloorToInt(textObject.rectTransform.rect.height * textObject.rectTransform.localScale.y);
             var texture = new Texture2D(width, height, TextureFormat.ARGB32, false);
             RenderTexture.active = renderCamera.targetTexture;
             var ap = textObject.rectTransform.anchoredPosition;

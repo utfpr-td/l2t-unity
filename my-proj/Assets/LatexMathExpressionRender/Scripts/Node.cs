@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 
 namespace LatexMathExpressionRender {
-    //public class Node {
-    //}
     public class Node {
         public int fontSize;
         public int bottomMargin;
