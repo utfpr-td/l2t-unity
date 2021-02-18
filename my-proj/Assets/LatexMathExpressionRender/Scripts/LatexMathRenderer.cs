@@ -6,6 +6,8 @@ using UnityEngine.UI;
 
 namespace LatexMathExpressionRender {
     public class LatexMathRenderer : MonoBehaviour {
+
+        private bool isOpenGL;
         public int baseFontSize;
         public delegate void OnRenderComplete(Texture2D result);
         bool waitL1;
@@ -17,6 +19,7 @@ namespace LatexMathExpressionRender {
         Texture2D activeTexture1;
         Texture2D activeTexture2;
         void Awake() {
+            isOpenGL = SystemInfo.graphicsDeviceVersion.Contains("OpenGL");
             textObject = GetComponentInChildren<Text>(true);
             renderCamera = GetComponentInChildren<Camera>(true);
             if (baseFontSize == 0) baseFontSize = 50;
@@ -403,7 +406,11 @@ namespace LatexMathExpressionRender {
             var texture = new Texture2D(width, height, TextureFormat.ARGB32, false);
             RenderTexture.active = renderCamera.targetTexture;
             var ap = textObject.rectTransform.anchoredPosition;
-            texture.ReadPixels(new Rect(ap.x, ap.y, textObject.rectTransform.rect.width, textObject.rectTransform.rect.height), 0, 0);
+            var vec = new Vector2(ap.x, ap.y);
+            if (isOpenGL) {
+                vec.y = renderCamera.targetTexture.height - textObject.rectTransform.rect.height;
+            }
+            texture.ReadPixels(new Rect(vec.x, vec.y, textObject.rectTransform.rect.width, textObject.rectTransform.rect.height), 0, 0);
             var pixels = texture.GetPixels();
             for (int i = 0; i < pixels.Length; i++) {
                 if (pixels[i] == Color.white) pixels[i] = new Color(255, 0, 0, 0);
