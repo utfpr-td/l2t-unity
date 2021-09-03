@@ -350,7 +350,7 @@ namespace LatexMathExpressionRender {
                 Parse(n.nodes[0]);
                 Parse(n.nodes[1]);
             }
-            else SplitExpression(n, indexEd1);
+            else SplitExpression(n, indexEd2);
         }
         private static void ParseFraction(Node n) {
             int indexOp1 = 0, indexEd1 = 0, indexOp2 = 0, indexEd2 = 0;
